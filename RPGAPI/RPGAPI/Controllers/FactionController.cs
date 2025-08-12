@@ -56,5 +56,16 @@ namespace RPGAPI.Controllers
             (faction.Name, faction.Resources, faction.Goals) = (updatedFaction.Name, updatedFaction.Resources, updatedFaction.Goals);
             return NoContent();
         }
+        [HttpDelete("{id}")]
+        public IActionResult DeleteFaction(int id)
+        {
+            Faction? faction = factions.FirstOrDefault(f => f.Id == id);
+            if (faction == null)
+            {
+                return NotFound($"Faction with ID {id} not found.");
+            }
+            factions.Remove(faction);
+            return NoContent();
+        }
     }
 }
