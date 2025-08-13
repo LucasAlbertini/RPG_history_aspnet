@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using RPGAPI.Data;
 using RPGAPI.Models;
+using RPGAPI.Models.DTOs;
+using RPGAPI.Services;
+using System.Threading.Tasks;
 
 namespace RPGAPI.Controllers
 {
@@ -16,67 +17,76 @@ namespace RPGAPI.Controllers
 
     public class FactionController : ControllerBase
     {
-        private readonly RPGDbContext _context;
-        public FactionController(RPGDbContext context)
+        private readonly FactionServices _factionServices;
+        public FactionController(FactionServices factionServices)
         {
-            _context = context;
+            _factionServices = factionServices;
         }
 
         // ...
 
         [HttpGet]
-        public async Task<ActionResult<List<Faction>>> GetFactions()
+        public async Task<ActionResult<List<FactionDto>>> GetFactions()
         {
-            List<Faction> factions = await _context.Factions
-                .Include(f => f.Goals)
-                .ToListAsync();
-
-            return Ok(factions);
+            try
+            {
+                List<FactionDto> factions = await _factionServices.GetFactionsAsync();
+                return Ok(factions);
+            }
+            catch (Exception)
+            {
+                // Retorna erro 500 com mensagem genérica
+                //return StatusCode(500, "Erro interno ao buscar facções.");
+                // Ou, se preferir, pode usar:
+                return Problem("Erro interno ao buscar facções.");
+            }
         }
 
-        //[HttpGet("{id}")]
-        //public ActionResult<Faction> GetFactionById(int id)
-        //{
-        //    Faction? faction = factions.FirstOrDefault(f => f.Id == id);
-        //    if (faction == null)
-        //    {
-        //        return NotFound($"Faction with ID {id} not found.");
-        //    }
-        //    return Ok(faction);
-        //}
-        //[HttpPost]
-        //public ActionResult<Faction> PostFaction(Faction faction)
-        //{
-        //    if (faction is null)
-        //    {
-        //        return BadRequest();
-        //    }
-        //    faction.Id = factions.Max(g => g.Id) + 1;
-        //    factions.Add(faction);
-        //    return CreatedAtAction(nameof(GetFactionById), new { id = faction.Id }, faction);
-        //}
+        [HttpGet("{id}")]
+        public async Task<ActionResult<FactionDto>> GetFactionById(int id)
+        {
+            FactionDto? faction = await _factionServices.GetFactionByIdAsync(id);
+            if (faction == null)
+            {
+                return NotFound($"Faction with id {id} not found.");
+            }
+            return Ok(faction);
+        }
 
-        //[HttpPut("{id}")]
-        //public IActionResult UpdateFaction(int id, Faction updatedFaction)
-        //{
-        //    Faction? faction = factions.FirstOrDefault(f => f.Id == id);
-        //    if (faction == null)
-        //    {
-        //        return NotFound($"Faction with ID {id} not found.");
-        //    }
-        //    (faction.Name, faction.Resources, faction.Goals) = (updatedFaction.Name, updatedFaction.Resources, updatedFaction.Goals);
-        //    return NoContent();
-        //}
-        //[HttpDelete("{id}")]
-        //public IActionResult DeleteFaction(int id)
-        //{
-        //    Faction? faction = factions.FirstOrDefault(f => f.Id == id);
-        //    if (faction == null)
-        //    {
-        //        return NotFound($"Faction with ID {id} not found.");
-        //    }
-        //    factions.Remove(faction);
-        //    return NoContent();
-        //}
+        [HttpPost]
+        public async Task<ActionResult<FactionDto>> PostFaction(FactionDto factionDto)
+        {
+            if (factionDto is null)
+            {
+                return BadRequest();
+            }
+
+            FactionDto response = await _factionServices.CreateFactionAsync(factionDto);
+
+            return CreatedAtAction(nameof(GetFactionById), new { id = response.Id }, response);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateFaction(int id, FactionDto updatedFaction)
+        {
+            if (updatedFaction is null)
+            {
+                return BadRequest();
+            }
+            if (await _factionServices.UpdateFactionAsync(id, updatedFaction))
+            {
+                return NoContent();
+            }
+            return Problem("Erro interno ao buscar facção.");
+        }
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteFaction(int id)
+        {
+            if(await _factionServices.DeleteFactionAsync(id))
+            {
+                return NoContent();
+            }
+            return NotFound($"Faction with ID {id} not found.");
+        }
     }
 }
