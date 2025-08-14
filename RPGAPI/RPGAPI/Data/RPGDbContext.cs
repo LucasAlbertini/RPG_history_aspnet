@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using RPGAPI.Models;
+using RPGAPI.Core.Entities;
 
 namespace RPGAPI.Data
 {

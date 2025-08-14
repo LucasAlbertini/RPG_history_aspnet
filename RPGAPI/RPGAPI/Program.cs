@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using RPGAPI.Data;
+using RPGAPI.Mapping;
 using RPGAPI.Services;
 using Scalar.AspNetCore;
 
@@ -14,6 +16,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddDbContext<RPGDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<FactionServices>();
+builder.Services.AddAutoMapper(cfg => { cfg.AddProfile<MappingProfile>(); });
+//builder.Services.AddAutoMapper(typeof(MappingProfile));
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

@@ -1,92 +1,56 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RPGAPI.Core.Entities;
 using RPGAPI.Data;
-using RPGAPI.Models;
+using RPGAPI.Mapping;
 using RPGAPI.Models.DTOs;
 using System;
+using System.Runtime.Intrinsics.X86;
 namespace RPGAPI.Services
 
 {
     public class FactionServices
     {
         private readonly RPGDbContext _context;
-        public FactionServices(RPGDbContext context)
+        private readonly IMapper _mapper;
+        public FactionServices(RPGDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
         public async Task<List<FactionDto>> GetFactionsAsync()
         {
-            return await _context.Factions
-        .Select(f => new FactionDto
-        {
-            Id = f.Id,
-            Name = f.Name,
-            Resources = f.Resources,
-            Goals = f.Goals.Select(g => new GoalDto
-            {
-                Id = g.Id,
-                Name = g.Name,
-                Description = g.Description,
-                ProgressMade = g.ProgressMade,
-                ProgressNecessary = g.ProgressNecessary
-            }).ToList()
-        })
-        .ToListAsync();
+            return _mapper.Map<List<FactionDto>>(
+                await _context.Factions
+                    .Include(f => f.Goals)
+                    .ToListAsync());
         }
         public async Task<FactionDto?> GetFactionByIdAsync(int id)
         {
-            return await _context.Factions
-                .Where(f => f.Id == id)
-                .Select(f => new FactionDto
-                {
-                    Id = f.Id,
-                    Name = f.Name,
-                    Resources = f.Resources,
-                    Goals = f.Goals.Select(g => new GoalDto
-                    {
-                        Id = g.Id,
-                        Name = g.Name,
-                        Description = g.Description,
-                        ProgressMade = g.ProgressMade,
-                        ProgressNecessary = g.ProgressNecessary
-                    }).ToList()
-                })
+            Faction? faction = await _context.Factions
+                .Include(f => f.Goals)
                 .FirstOrDefaultAsync(f => f.Id == id);
+
+            if (faction == null)
+                return null;
+
+            return _mapper.Map<FactionDto>(faction);
         }
         public async Task<FactionDto> CreateFactionAsync(FactionDto factionDto)
         {
-            var faction = new Faction
-            {
-                Name = factionDto.Name,
-                Resources = factionDto.Resources,
-                Goals = factionDto.Goals.Select(g => new Goal
-                {
-                    Name = g.Name,
-                    Description = g.Description,
-                    ProgressMade = g.ProgressMade,
-                    ProgressNecessary = g.ProgressNecessary
-                }).ToList()
-            };
+            // Usa o AutoMapper para mapear o DTO para a entidade
+            Faction faction = _mapper.Map<Faction>(factionDto);
+
             _context.Factions.Add(faction);
             foreach (var goal in faction.Goals)
             {
                 _context.Goals.Add(goal);
             }
             await _context.SaveChangesAsync();
-            FactionDto result = new FactionDto
-            {
-                Id = faction.Id,
-                Name = faction.Name,
-                Resources = faction.Resources,
-                Goals = faction.Goals.Select(g => new GoalDto
-                {
-                    Id = g.Id,
-                    Name = g.Name,
-                    Description = g.Description,
-                    ProgressMade = g.ProgressMade,
-                    ProgressNecessary = g.ProgressNecessary
-                }).ToList()
-            };
+
+            // Usa o AutoMapper para mapear a entidade salva de volta para DTO
+            var result = _mapper.Map<FactionDto>(faction);
             return result;
         }
 
@@ -99,8 +63,10 @@ namespace RPGAPI.Services
             if (faction == null)
                 return false;
 
-            faction.Name = factionDto.Name;
-            faction.Resources = factionDto.Resources;
+            //faction = _mapper.Map<Faction>(factionDto); 
+            //Como é uma instancia ja existente, posso fazer dessa forma:
+            _mapper.Map(factionDto, faction);
+            faction.Id = id;
 
             // Atualiza, remove e adiciona metas conforme necessário
             // Remove metas que não existem mais
@@ -110,28 +76,20 @@ namespace RPGAPI.Services
             _context.Goals.RemoveRange(goalsToRemove);
 
             // Atualiza ou adiciona metas
-            foreach (var goalDto in factionDto.Goals)
+            foreach (GoalDto goalDto in factionDto.Goals)
             {
-                var existingGoal = faction.Goals.FirstOrDefault(g => g.Id == goalDto.Id);
+                Goal? existingGoal = faction.Goals.FirstOrDefault(g => g.Id == goalDto.Id);
                 if (existingGoal != null)
                 {
                     // Atualiza meta existente
-                    existingGoal.Name = goalDto.Name;
-                    existingGoal.Description = goalDto.Description;
-                    existingGoal.ProgressMade = goalDto.ProgressMade;
-                    existingGoal.ProgressNecessary = goalDto.ProgressNecessary;
+                    existingGoal = _mapper.Map<Goal>(goalDto);
                 }
                 else
                 {
                     // Adiciona nova meta
-                    faction.Goals.Add(new Goal
-                    {
-                        Name = goalDto.Name,
-                        Description = goalDto.Description,
-                        ProgressMade = goalDto.ProgressMade,
-                        ProgressNecessary = goalDto.ProgressNecessary,
-                        FactionId = faction.Id
-                    });
+                    Goal newGoal = _mapper.Map<Goal>(goalDto);
+                    newGoal.FactionId = faction.Id;
+                    faction.Goals.Add(newGoal);
                 }
             }
 
@@ -139,6 +97,7 @@ namespace RPGAPI.Services
             await _context.SaveChangesAsync();
             return true;
         }
+
         public async Task<bool> DeleteFactionAsync(int id)
         {
             Faction? faction = _context.Factions

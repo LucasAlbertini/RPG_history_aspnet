@@ -1,6 +1,6 @@
 ﻿using System.Runtime.Versioning;
 
-namespace RPGAPI.Models
+namespace RPGAPI.Core.Entities
 {
     public class Faction
     {

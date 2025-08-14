@@ -1,4 +1,4 @@
-﻿namespace RPGAPI.Models
+﻿namespace RPGAPI.Core.Entities
 {
     public class Goal
     {
